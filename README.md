@@ -16,14 +16,14 @@ Depending on the algorithm desired, run the respective file "run-SEAC" or "run-D
 
 **Authors:**
 
-- [Tomás Bordoy García-Carpintero]
+- Tomás Bordoy García-Carpintero
 
-- [Lucas Alexander Damberg Torp Dyssel]
+- Lucas Alexander Damberg Torp Dyssel
 
 **Supervisors:**
 
-- [Melih Kandemir]
+- Melih Kandemir
 
-- [Oliver Baumann]
+- Oliver Baumann
 
 
