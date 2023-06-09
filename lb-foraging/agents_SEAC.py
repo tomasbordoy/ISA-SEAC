@@ -6,7 +6,7 @@ from collections import deque
 
 from torch import nn
 
-from Networks import NN_Actor, NN_Critic
+from networks_SEAC import NN_Actor, NN_Critic
 
 
 class Agents_SEAC:
@@ -59,8 +59,6 @@ class Agents_SEAC:
         actor_losses = []
         critic_losses = []
         for agent in self.agents:
-            # if self.current_step % self.save_every == 0:
-            #     self.save_agents()
             actor_losses.append(agent.actor_loss(nobs=nobs.clone(), next_nobs=next_nobs.clone(
             ), nactions=nactions.clone(), nrewards=nrewards.clone(), agents=self.agents))
             critic_losses.append(agent.critic_loss(nobs=nobs.clone(), next_nobs=next_nobs.clone(
@@ -79,10 +77,6 @@ class Agents_SEAC:
             nactions.append(action_index)
         self.current_exploration_rate = exploration_rate
         return tuple(nactions)
-
-    def save_agents(self):
-        for agent in self.agents:
-            agent.save(self.current_step, self.save_every)
 
 
 class Agent_SEAC:
@@ -122,19 +116,15 @@ class Agent_SEAC:
         self.loss_fn = torch.nn.SmoothL1Loss()
 
     def act(self, obs):
-        # if self.counter>15000:
-        #     print("test")
         obs = torch.tensor(obs, device=self.device)
         action_distribution = self.actor.forward(state=obs)
         if np.random.rand() < self.exploration_rate:
-            # action_index = torch.multinomial(action_distribution, 1).item()
-            action_index= np.random.randint(self.nactions)
+            action_index = np.random.randint(self.nactions)
         else:
             action_index = self.actor.get_max(action_distribution)
             action_index = int(action_index.item())
         self.update_exploration_rate()
 
-        # self.counter+=1
         return action_index, self.exploration_rate
 
     def update_exploration_rate(self):
@@ -156,25 +146,21 @@ class Agent_SEAC:
             return np.concatenate((agents[:self.id], agents[self.id + 1:]), axis=0)
 
     def actor_loss(self, nobs, next_nobs, nactions, nrewards, agents):
-        # print("nobs ",nobs)
         individual_policy = torch.gather(self.actor.forward(nobs[:, self.id]), 1, nactions[:, self.id].unsqueeze(1))
         individual_reward = torch.unsqueeze(nrewards[:, self.id], dim=1)
         individual_prediction = self.critic.forward(nobs[:, self.id]).detach()
-        individual_estimation = self.target_critic.forward(next_nobs[:, self.id]).detach()  # target
-        # if individual_policy.any() < 0.001:
-        #     print("test")
+        individual_estimation = self.target_critic.forward(next_nobs[:, self.id]).detach()
 
         individual_policy = torch.clamp(individual_policy, min=0.01)
         individual_policy_log = -torch.log(individual_policy)
         individual_Bellman = individual_reward + self._gamma * individual_estimation - individual_prediction
         individual_loss = individual_policy_log * individual_Bellman
 
-        # return torch.mean(individual_loss)
         other_loss_list = []
         for other_agent in self.other_agents(agents=agents):
             other_individual_policy = torch.gather(self.actor.forward(nobs[:, other_agent.id]), 1,
                                                    nactions[:, other_agent.id].unsqueeze(1))
-            other_policy = torch.gather(other_agent.loss.forward(nobs[:, other_agent.id]), 1,
+            other_policy = torch.gather(other_agent.actor.forward(nobs[:, other_agent.id]), 1,
                                         nactions[:, other_agent.id].unsqueeze(1)).detach()
             other_reward = nrewards[:, other_agent.id]
             other_individual_prediction = self.critic.forward(nobs[:, other_agent.id]).detach()
@@ -198,23 +184,20 @@ class Agent_SEAC:
         return loss
 
     def critic_loss(self, nobs, next_nobs, nactions, nrewards, agents):
-        # loss=self.critic_test(nobs, next_nobs, nactions, nrewards, agents)
         individual_reward = torch.unsqueeze(nrewards[:, self.id], dim=1)
         individual_prediction = self.critic.forward(nobs[:, self.id])
-        individual_estimation = self.target_critic.forward(next_nobs[:, self.id]).detach()  # target
+        individual_estimation = self.target_critic.forward(next_nobs[:, self.id]).detach()
 
         y_individual = individual_reward + self._gamma * individual_estimation
         individual_Bellman = individual_prediction - y_individual
         individual_loss = torch.pow(individual_Bellman, 2)
-
-        # return torch.mean(individual_loss)
 
         other_loss_list = []
         other_agents = self.other_agents(agents=agents)
         for other_agent in other_agents:
             other_individual_policy = torch.gather(self.actor.forward(nobs[:, other_agent.id]), 1,
                                                    nactions[:, other_agent.id].unsqueeze(1)).detach()
-            other_policy = torch.gather(other_agent.loss.forward(nobs[:, other_agent.id]), 1,
+            other_policy = torch.gather(other_agent.actor.forward(nobs[:, other_agent.id]), 1,
                                         nactions[:, other_agent.id].unsqueeze(1)).detach()
             other_reward = nrewards[:, other_agent.id]
             other_individual_prediction = self.critic.forward(nobs[:, other_agent.id])
@@ -248,20 +231,3 @@ class Agent_SEAC:
         critic_loss.backward()
         nn.utils.clip_grad_norm_(self.critic.parameters(), 0.5)
         self.optimizer_critic.step()
-
-    def save(self, current_step, save_every):
-
-        save_path = (
-            self.save_dir /
-            f"agent_{self.id}_{int(current_step // save_every)}.chkpt"
-        )
-        torch.save(
-            dict(model=self.actor.state_dict(),
-                 exploration_rate=self.exploration_rate),
-            save_path,
-        )
-
-        print(f'agent_{self.id} saved to {save_path} at step {current_step}')
-
-    def load(self, path):
-        pass

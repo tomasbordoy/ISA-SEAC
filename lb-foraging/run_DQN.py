@@ -1,6 +1,5 @@
 from test_DQN import Main
 
-
 types = ["NN","BNN"]
 runs = 3
 n_agents = 2

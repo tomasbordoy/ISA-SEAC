@@ -24,8 +24,7 @@ class Train:
         env = gym.make(f"Foraging-{self.dim}x{self.dim}-{self.n_agents}p-{self.n_food}f-v2")
 
         dqn = Agents_DQN(obs_space=env.observation_space,
-                           action_space=env.action_space, nagents=self.n_agents, nn_type=self.nn_type)
-
+                         action_space=env.action_space, nagents=self.n_agents, nn_type=self.nn_type)
 
         final_rewards = []
         losses = []

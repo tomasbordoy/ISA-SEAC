@@ -1,5 +1,0 @@
-
-100000 games, lambda_actor= 0.95 , lambda_critic = 0.95     TODO: change titles
-100000 games, lambda_actor= 0 , lambda_critic = 0.95        TODO: DONE
-100000 games, lambda_actor= 0.95 , lambda_critic = 0        TODO: DONE
-100000 games, lambda_actor= 0 , lambda_critic = 0           TODO: DONE

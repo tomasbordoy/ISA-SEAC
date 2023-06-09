@@ -9,7 +9,8 @@ from networks_QLearning import DQN
 
 
 class Agents_DQN:
-    def __init__(self, obs_space, action_space, nagents: int, nn_type: str = "NN",memory_size: int = 200000, batch_size: int = 32) -> None:
+    def __init__(self, obs_space, action_space, nagents: int, nn_type: str = "NN", memory_size: int = 200000,
+                 batch_size: int = 32) -> None:
         self.device = "cpu"
         self.memory = deque(maxlen=memory_size)
 
@@ -27,8 +28,8 @@ class Agents_DQN:
         agents = np.zeros(nagents, dtype=Agent_DQN)
         for i in range(nagents):
             agents[i] = Agent_DQN(obs_space=obs_space, action_space=action_space,
-                                   nn_type=nn_type,  device=self.device, id=i,batch_size=self.batch_size,
-                                   save_dir="Output")
+                                  nn_type=nn_type, device=self.device, id=i, batch_size=self.batch_size,
+                                  save_dir="Output")
         return agents
 
     def store(self, nobs, next_nobs, nactions, nrewards, ndone) -> None:
@@ -57,9 +58,9 @@ class Agents_DQN:
 
         nobs, next_nobs, nactions, nrewards, ndone = self.retrieve()
         losses = []
-        for idx,agent in enumerate(self.agents):
+        for idx, agent in enumerate(self.agents):
             losses.append(agent.loss(nobs=nobs.clone()[:, idx, :], next_nobs=next_nobs.clone(
-            )[:,idx,:], nactions=nactions.clone()[:,idx], nrewards=nrewards.clone()[:,idx], ndone=ndone[:,idx]))
+            )[:, idx, :], nactions=nactions.clone()[:, idx], nrewards=nrewards.clone()[:, idx], ndone=ndone[:, idx]))
         for idx, agent in enumerate(self.agents):
             agent.learn(loss=losses[idx])
 
@@ -73,13 +74,10 @@ class Agents_DQN:
         self.current_exploration_rate = exploration_rate
         return tuple(nactions)
 
-    def save_agents(self):
-        for agent in self.agents:
-            agent.save(self.current_step, self.save_every)
 
 
 class Agent_DQN:
-    def __init__(self, obs_space, action_space, nn_type, device, id, save_dir,batch_size) -> None:
+    def __init__(self, obs_space, action_space, nn_type, device, id, save_dir, batch_size) -> None:
         self.id = id
         self.lr = 0.001
         self.adam_eps = 0.001
@@ -90,40 +88,37 @@ class Agent_DQN:
         self.sync_every = 1e4
 
         self.nactions = np.array(action_space)[0].n
-        self.gamma=0.9
+        self.gamma = 0.9
         self.exploration_rate = 1
         self.exploration_rate_decay = 0.9999995
         self.exploration_rate_min = 0.1
         self.batch_size = batch_size
 
         self.dqn = DQN(input_dim=obs_space,
-                              output_dim=action_space, nn_type=nn_type)
-        self.target_dqn= DQN(input_dim=obs_space,
+                       output_dim=action_space, nn_type=nn_type)
+        self.target_dqn = DQN(input_dim=obs_space,
                               output_dim=action_space, nn_type=nn_type)
 
         self.target_dqn.load_state_dict(self.dqn.state_dict())
         for p in self.target_dqn.parameters():
-            p.requires_grad= False
+            p.requires_grad = False
 
         self.dqn = self.dqn.to(device=self.device)
         self.target_dqn = self.target_dqn.to(device=self.device)
 
-
-        self.optimizer= torch.optim.Adam(
+        self.optimizer = torch.optim.Adam(
             self.dqn.parameters(), lr=self.lr, eps=self.adam_eps)
         self.loss_fn = torch.nn.SmoothL1Loss()
 
     def act(self, obs):
         if np.random.rand() < self.exploration_rate:
-            action_index= np.random.randint(self.nactions)
+            action_index = np.random.randint(self.nactions)
         else:
             obs = torch.tensor(obs, device=self.device)
             action_values = self.dqn.forward(state=obs)
             action_index = int(self.dqn.get_max(x=action_values).item())
-            # action_index = int(torch.argmax(action_values,axis=1).item())
         self.update_exploration_rate()
 
-        # self.counter+=1
         return action_index, self.exploration_rate
 
     def update_exploration_rate(self):
@@ -131,34 +126,25 @@ class Agent_DQN:
         self.exploration_rate = max(
             self.exploration_rate_min, self.exploration_rate)
 
-
-    def loss(self,nobs, next_nobs, nactions,nrewards,ndone):
-        td_estimate = self.td_estimate(nobs,nactions)
-        td_target = self.td_target(nrewards,next_nobs,ndone)
-        loss = self.loss_fn(td_estimate,td_target)
+    def loss(self, nobs, next_nobs, nactions, nrewards, ndone):
+        td_estimate = self.td_estimate(nobs, nactions)
+        td_target = self.td_target(nrewards, next_nobs, ndone)
+        loss = self.loss_fn(td_estimate, td_target)
         return loss
 
-
-
-    def td_estimate(self,state,action):
+    def td_estimate(self, state, action):
         action_Qs = self.dqn.forward(state=state)
-        current_Q = action_Qs[np.arange(0,self.batch_size),action]
+        current_Q = action_Qs[np.arange(0, self.batch_size), action]
         return current_Q
 
-    def td_target(self,reward, next_state, done):
+    def td_target(self, reward, next_state, done):
         next_state_Q = self.dqn.forward(next_state).detach()
-        # best_action= int(self.dqn.get_max(next_state_Q).item())
         best_action = torch.tensor([int(self.dqn.get_max(nsQ).item()) for nsQ in next_state_Q])
-        # best_action_list = []
-        # for i in range(next_state_Q.size(0)):
-        #     batch= next_state_Q[i]
-        #     best_action_list.append(int(self.dqn.get_max(batch).item()))
-        # best_action = torch.tensor()
-        nextQ = self.target_dqn.forward(next_state).detach()[np.arange(0,self.batch_size),best_action]
-        target = (reward + (1-done.float()) * self.gamma * nextQ).float()
+        nextQ = self.target_dqn.forward(next_state).detach()[np.arange(0, self.batch_size), best_action]
+        target = (reward + (1 - done.float()) * self.gamma * nextQ).float()
         return target
 
-    def learn(self,loss):
+    def learn(self, loss):
         self.optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(self.dqn.parameters(), 0.5)
@@ -167,21 +153,3 @@ class Agent_DQN:
     def sync_Q_target(self):
         self.target_dqn.load_state_dict(self.dqn.state_dict())
 
-
-
-    def save(self, current_step, save_every):
-
-        save_path = (
-            self.save_dir /
-            f"agent_{self.id}_{int(current_step // save_every)}.chkpt"
-        )
-        torch.save(
-            dict(model=self.actor.state_dict(),
-                 exploration_rate=self.exploration_rate),
-            save_path,
-        )
-
-        print(f'agent_{self.id} saved to {save_path} at step {current_step}')
-
-    def load(self, path):
-        pass

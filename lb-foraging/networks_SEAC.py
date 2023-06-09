@@ -16,7 +16,7 @@ def init_bayesian(module, mean_init, bias_init, gain=1):
     return module
 
 
-class DQN(nn.Module):
+class NN_Actor(nn.Module):
     def __init__(self, input_dim, output_dim, nn_type: str, mu: float = 0, sigma: float = 0.1):
         super().__init__()
         self.mu = mu
@@ -49,13 +49,52 @@ class DQN(nn.Module):
             raise Exception('Incorrect nn_type')
 
     def forward(self, state):
+        a = self.layer1(state)
+        b = torch.relu(a)
+        c = self.layer2(b)
+        d = torch.relu(c)
+        e = self.layer3(d)
+        dist = torch.softmax(e, dim=-1)
+
+        if torch.isinf(dist).any() or torch.isnan(dist).any():
+            print("test")
+        return dist
+
+    def get_max(self, x: np.ndarray):
+        x = x.argmax()
+        return x
+
+
+class NN_Critic(nn.Module):
+    def __init__(self, input_dim, nn_type: str = "NN", mu: float = 0, sigma: float = 0.1):
+        super().__init__()
+        self.mu = mu
+        self.sigma = sigma
+        self.hidden_size = 64
+        input_shape = np.array(input_dim)[0].shape[0]
+        _init = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        _init_bayesian = lambda m: init_bayesian(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+
+        if nn_type == "NN":
+            self.layer1 = _init(nn.Linear(in_features=input_shape, out_features=self.hidden_size))
+            self.layer2 = _init(nn.Linear(in_features=self.hidden_size, out_features=self.hidden_size))
+            self.layer3 = _init(nn.Linear(in_features=self.hidden_size, out_features=1))
+        elif nn_type == "BNN":
+            self.layer1 = _init_bayesian(
+                bnn.BayesLinear(prior_mu=self.mu, prior_sigma=self.sigma, in_features=input_shape,
+                                out_features=self.hidden_size))
+            self.layer2 = _init_bayesian(
+                bnn.BayesLinear(prior_mu=self.mu, prior_sigma=self.sigma, in_features=self.hidden_size,
+                                out_features=self.hidden_size))
+            self.layer3 = _init_bayesian(
+                bnn.BayesLinear(prior_mu=self.mu, prior_sigma=self.sigma, in_features=self.hidden_size, out_features=1))
+        else:
+            raise Exception('Incorrect nn_type')
+
+    def forward(self, state):
         x = self.layer1(state)
         x = torch.relu(x)
         x = self.layer2(x)
         x = torch.relu(x)
         x = self.layer3(x)
-        return x
-
-    def get_max(self, x: np.ndarray):
-        x = x.argmax()
         return x

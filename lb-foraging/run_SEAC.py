@@ -1,8 +1,7 @@
 from test_SEAC import Main
 
-
-actor_types = ["BNN"]
-critic_types = ["BNN"]
+actor_types = ["NN","BNN"]
+critic_types = ["NN","BNN"]
 runs = 3
 n_agents = 2
 n_food = 1
