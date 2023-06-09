@@ -4,15 +4,6 @@ Over the past few years, the field of Reinforcement Learning has managed to take
 
 In this paper, we focus on the use of multi-agent reinforcement learning (MARL) for social dilemma problems using the Level Based Foraging (LBF) environment, where agents must balance the competing goals of maximizing their individual rewards while also learning to cooperate and coordinate with other agents. We will also be using probabilistic approaches by using Bayesian Neural Networks (BNN), which may be useful in MARL due to their ability to model uncertainty and capture complex dependencies in the environment.
 
-## Table of Contents
-
-- [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [License](#license)
-- [Credits](#credits)
-
 ## Installation
 
 Clone the repository and add the virtual environment called "venv7"
